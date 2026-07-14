@@ -3,25 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Конвертер концентрации газов</title>
+    <title>Конвертер концентрации газов (Метрологический)</title>
     <style>
         :root {
-            --primary: #2c5f8a;
-            --primary-light: #3a7cb8;
-            --accent: #e8740c;
-            --bg: #f0f2f5;
+            --primary: #1a3a52;
+            --primary-light: #2c5f8a;
+            --accent: #c0392b;
+            --bg: #f4f6f8;
             --card: #ffffff;
             --text: #2c3e50;
-            --text-light: #6b7c93;
+            --text-light: #546e7a;
             --border: #dce3eb;
             --hover-row: #eef3fa;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -31,27 +27,11 @@
             padding: 30px 20px;
         }
 
-        .page-wrapper {
-            max-width: 700px;
-            margin: 0 auto;
-        }
+        .page-wrapper { max-width: 750px; margin: 0 auto; }
 
-        .header {
-            text-align: center;
-            margin-bottom: 28px;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 6px;
-        }
-
-        .header p {
-            font-size: 14px;
-            color: var(--text-light);
-        }
+        .header { text-align: center; margin-bottom: 28px; }
+        .header h1 { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 6px; }
+        .header p { font-size: 14px; color: var(--text-light); }
 
         .card {
             background: var(--card);
@@ -73,20 +53,9 @@
             border-bottom: 2px solid var(--border);
         }
 
-        .form-row {
-            display: grid;
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .form-row.cols-2 {
-            grid-template-columns: 1fr 1fr;
-        }
-
-        .form-row.cols-3 {
-            grid-template-columns: 1fr 1fr auto;
-            align-items: end;
-        }
+        .form-row { display: grid; gap: 16px; margin-bottom: 16px; }
+        .form-row.cols-2 { grid-template-columns: 1fr 1fr; }
+        .form-row.cols-3 { grid-template-columns: 1fr 1fr auto; align-items: end; }
 
         .form-group label {
             display: block;
@@ -96,8 +65,7 @@
             margin-bottom: 6px;
         }
 
-        .form-group input,
-        .form-group select {
+        .form-group input, .form-group select {
             width: 100%;
             padding: 10px 14px;
             border: 1.5px solid var(--border);
@@ -108,8 +76,7 @@
             transition: border-color 0.2s, box-shadow 0.2s;
         }
 
-        .form-group input:focus,
-        .form-group select:focus {
+        .form-group input:focus, .form-group select:focus {
             outline: none;
             border-color: var(--primary-light);
             box-shadow: 0 0 0 3px rgba(44, 95, 138, 0.12);
@@ -128,91 +95,59 @@
             white-space: nowrap;
             height: 43px;
         }
+        .btn-convert:hover { background: var(--primary-light); }
+        .btn-convert:active { transform: scale(0.97); }
 
-        .btn-convert:hover {
-            background: var(--primary-light);
-        }
-
-        .btn-convert:active {
-            transform: scale(0.97);
-        }
-
-        .results-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .results-table tr {
-            border-bottom: 1px solid var(--border);
-            transition: background 0.15s;
-        }
-
-        .results-table tr:last-child {
-            border-bottom: none;
-        }
-
-        .results-table tr:hover {
-            background: var(--hover-row);
-        }
-
-        .results-table td {
-            padding: 13px 10px;
-            font-size: 15px;
-        }
-
-        .results-table td:first-child {
-            color: var(--text-light);
-            font-weight: 500;
-            width: 60%;
-        }
-
+        .results-table { width: 100%; border-collapse: collapse; }
+        .results-table tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+        .results-table tr:last-child { border-bottom: none; }
+        .results-table tr:hover { background: var(--hover-row); }
+        .results-table td { padding: 13px 10px; font-size: 15px; }
+        .results-table td:first-child { color: var(--text-light); font-weight: 500; width: 60%; }
         .results-table td:last-child {
             text-align: right;
             font-weight: 700;
             font-family: 'Courier New', Courier, monospace;
             font-size: 16px;
             color: var(--primary);
-            letter-spacing: 0.3px;
         }
 
         .note {
-            background: #fff8ee;
+            background: #fdf2f2;
             border-left: 4px solid var(--accent);
-            padding: 14px 18px;
+            padding: 16px 18px;
             border-radius: 0 8px 8px 0;
             margin-top: 18px;
             font-size: 13px;
-            color: #7a5a1e;
-            line-height: 1.55;
+            color: #7a2d2d;
+            line-height: 1.6;
+        }
+        .note strong { display: block; margin-bottom: 6px; font-size: 14px; }
+        .formula { 
+            background: #fff; 
+            padding: 8px 12px; 
+            border-radius: 4px; 
+            font-family: 'Courier New', monospace; 
+            display: inline-block; 
+            margin: 4px 0;
+            border: 1px solid #e0caca;
         }
 
-        .note strong {
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        .footer {
-            text-align: center;
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 10px;
-        }
+        .footer { text-align: center; font-size: 12px; color: #aaa; margin-top: 10px; }
 
         @media (max-width: 640px) {
             body { padding: 14px 8px; }
             .card { padding: 20px 16px; }
             .form-row.cols-2, .form-row.cols-3 { grid-template-columns: 1fr; }
             .btn-convert { width: 100%; }
-            .results-table td:first-child { width: auto; }
         }
     </style>
 </head>
 <body>
     <div class="page-wrapper">
-
         <div class="header">
-            <h1>🔬 Конвертер концентрации газов</h1>
-            <p>Для настройки и калибровки газоанализаторов</p>
+            <h1>⚖️ Конвертер концентрации газов</h1>
+            <p>Метрологический расчёт на основе уравнения состояния идеального газа</p>
         </div>
 
         <div class="card">
@@ -222,15 +157,15 @@
                 <div class="form-group">
                     <label for="gasSelect">Газ</label>
                     <select id="gasSelect">
-                        <option value="32.00">Кислород (O₂)</option>
-                        <option value="34.08">Сероводород (H₂S)</option>
-                        <option value="16.04">Метан (CH₄)</option>
-                        <option value="28.01">Угарный газ / CO</option>
+                        <option value="32.00">Кислород (O₂) — 32.00 г/моль</option>
+                        <option value="34.08">Сероводород (H₂S) — 34.08 г/моль</option>
+                        <option value="16.04">Метан (CH₄) — 16.04 г/моль</option>
+                        <option value="28.01">Угарный газ (CO) — 28.01 г/моль</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label for="inputValue">Значение концентрации</label>
-                    <input type="number" id="inputValue" step="any" value="100" placeholder="Введите число">
+                    <input type="number" id="inputValue" step="any" value="5" placeholder="Введите число">
                 </div>
             </div>
 
@@ -238,15 +173,14 @@
                 <div class="form-group">
                     <label for="inputUnit">Единица измерения</label>
                     <select id="inputUnit">
-                        <option value="ppm">ppm (частей на миллион, объёмн.)</option>
-                        <option value="ppb">ppb (частей на миллиард, объёмн.)</option>
+                        <option value="ppm">ppm (объёмных частей на миллион)</option>
+                        <option value="ppb">ppb (объёмных частей на миллиард)</option>
                         <option value="percent">% (объёмные проценты)</option>
-                        <option value="mgm3">мг/м³</option>
+                        <option value="mgm3" selected>мг/м³</option>
                         <option value="gm3">г/м³</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <!-- Пустой блок для выравнивания сетки, либо можно добавить подсказку -->
                     <label style="color: transparent;">Справка</label>
                     <div style="font-size: 13px; color: var(--text-light); padding: 10px 0;">
                         1 % = 10 000 ppm<br>
@@ -264,53 +198,39 @@
                     <label for="pressure">Давление, кПа</label>
                     <input type="number" id="pressure" value="101.325" step="0.001">
                 </div>
-                <button class="btn-convert" onclick="convert()">Конвертировать</button>
+                <button class="btn-convert" onclick="convert()">Рассчитать</button>
             </div>
         </div>
 
         <div class="card">
-            <div class="card-title">Результаты</div>
+            <div class="card-title">Результаты пересчёта</div>
 
             <table class="results-table">
                 <tbody>
-                    <tr>
-                        <td>ppm (частей на миллион)</td>
-                        <td id="res-ppm">—</td>
-                    </tr>
-                    <tr>
-                        <td>ppb (частей на миллиард)</td>
-                        <td id="res-ppb">—</td>
-                    </tr>
-                    <tr>
-                        <td>% (объёмные проценты)</td>
-                        <td id="res-percent">—</td>
-                    </tr>
-                    <tr>
-                        <td>мг/м³ (миллиграмм на куб. метр)</td>
-                        <td id="res-mgm3">—</td>
-                    </tr>
-                    <tr>
-                        <td>г/м³ (грамм на куб. метр)</td>
-                        <td id="res-gm3">—</td>
-                    </tr>
-                    <tr>
-                        <td>мкг/м³ (микрограмм на куб. метр)</td>
-                        <td id="res-ugm3">—</td>
-                    </tr>
+                    <tr><td>ppm (частей на миллион)</td><td id="res-ppm">—</td></tr>
+                    <tr><td>ppb (частей на миллиард)</td><td id="res-ppb">—</td></tr>
+                    <tr><td>% (объёмные проценты)</td><td id="res-percent">—</td></tr>
+                    <tr><td>мг/м³ (миллиграмм на куб. метр)</td><td id="res-mgm3">—</td></tr>
+                    <tr><td>г/м³ (грамм на куб. метр)</td><td id="res-gm3">—</td></tr>
+                    <tr><td>мкг/м³ (микрограмм на куб. метр)</td><td id="res-ugm3">—</td></tr>
                 </tbody>
             </table>
 
             <div class="note">
-                <strong>📐 Методика расчёта</strong>
-                Объёмные доли (ppm, ppb, %) не зависят от температуры и давления.<br>
-                Пересчёт в массовые концентрации выполняется по уравнению идеального газа:<br>
-                <strong>C (мг/м³) = C (ppm) × M × P / (R × T)</strong><br>
-                где M — молярная масса газа (г/моль), P — давление (Па), T — температура (К), R = 8,314462 Дж/(моль·К).
+                <strong>📐 Метрологическое обоснование расчёта</strong>
+                Пересчёт объёмных долей в массовые концентрации выполняется строго по уравнению Менделеева-Клапейрона:<br>
+                <div class="formula">C(мг/м³) = (C(ppm) × M × P) / (R × T)</div><br>
+                Где:<br>
+                • <strong>M</strong> — молярная масса газа (г/моль)<br>
+                • <strong>P</strong> — абсолютное давление (кПа)<br>
+                • <strong>T</strong> — абсолютная температура (К) = t°C + 273.15<br>
+                • <strong>R</strong> — универсальная газовая постоянная = 8.314462 Л·кПа/(моль·К)<br><br>
+                <em>Обратный пересчёт: C(ppm) = (C(мг/м³) × R × T) / (M × P)</em>
             </div>
         </div>
 
         <div class="footer">
-            Локальный инструмент &bull; Данные не передаются в сеть
+            Локальный инструмент &bull; Расчёты выполняются в браузере &bull; Данные не передаются в сеть
         </div>
     </div>
 
@@ -329,22 +249,22 @@
         });
 
         function convert() {
-            const M     = parseFloat(elGas.value);
+            const M     = parseFloat(elGas.value);      // г/моль
             const val   = parseFloat(elValue.value);
             const unit  = elUnit.value;
             const tC    = parseFloat(elTemp.value);
             const pKPa  = parseFloat(elPress.value);
 
+            // Валидация: при некорректных данных очищаем результат
             if (isNaN(val) || isNaN(M) || isNaN(tC) || isNaN(pKPa) || pKPa <= 0) {
                 clearResults();
                 return;
             }
 
-            const T = tC + 273.15;      // Кельвины
-            const P = pKPa * 1000;      // Паскали
-            const R = 8.314462;         // Дж/(моль·К)
+            const T = tC + 273.15;          // Абсолютная температура, К
+            const R = 8.314462;             // Универсальная газовая постоянная, Л·кПа/(моль·К)
 
-            // 1. Приводим входное значение к ppm (объёмных)
+            // 1. Приводим входное значение к базовой единице ppm (объёмных)
             let ppm;
             switch (unit) {
                 case 'ppm':
@@ -357,23 +277,27 @@
                     ppm = val * 10000;
                     break;
                 case 'mgm3':
-                    ppm = (val * R * T) / (M * P);
+                    // Строгая формула: C(ppm) = (C(мг/м³) × R × T) / (M × P)
+                    ppm = (val * R * T) / (M * pKPa);
                     break;
                 case 'gm3':
-                    ppm = (val * 1000 * R * T) / (M * P);
+                    // 1 г/м³ = 1000 мг/м³
+                    ppm = (val * 1000 * R * T) / (M * pKPa);
                     break;
                 default:
                     ppm = 0;
             }
 
-            // 2. Из ppm считаем все остальные единицы
+            // 2. Из ppm рассчитываем все остальные единицы
             const ppb     = ppm * 1000;
             const percent = ppm / 10000;
-            const mgm3    = (ppm * M * P) / (R * T);
+            
+            // Строгая формула: C(мг/м³) = (C(ppm) × M × P) / (R × T)
+            const mgm3    = (ppm * M * pKPa) / (R * T);
             const gm3     = mgm3 / 1000;
             const ugm3    = mgm3 * 1000;
 
-            // 3. Выводим результаты
+            // 3. Вывод результатов с корректным форматированием
             document.getElementById('res-ppm').textContent     = fmt(ppm);
             document.getElementById('res-ppb').textContent     = fmt(ppb);
             document.getElementById('res-percent').textContent = fmt(percent);
@@ -382,6 +306,7 @@
             document.getElementById('res-ugm3').textContent    = fmt(ugm3);
         }
 
+        // Форматирование чисел: до 7 значащих цифр, удаление незначащих нулей
         function fmt(n) {
             if (!isFinite(n) || isNaN(n)) return '—';
             if (n === 0) return '0';
