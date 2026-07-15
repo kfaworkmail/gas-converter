@@ -242,7 +242,7 @@
 <body>
     <div class="page-wrapper">
         <div class="header">
-            <h1>️ Конвертер концентрации газов</h1>
+            <h1>⚖️ Конвертер концентрации газов</h1>
             <p>Метрологический расчёт на основе уравнения состояния идеального газа</p>
         </div>
 
@@ -264,7 +264,7 @@
                 </div>
                 <div class="form-group">
                     <label for="inputValue">Значение концентрации</label>
-                    <input type="number" id="inputValue" step="any" value="5" placeholder="Введите число">
+                    <input type="number" id="inputValue" step="any" placeholder="Введите число">
                 </div>
             </div>
 
@@ -395,17 +395,10 @@
         /* =============================================================
          *  КОНСТАНТЫ
          * ============================================================= */
-        // Универсальная газовая постоянная.
-        // Единое обозначение во всей программе: R = 8.314462 кПа·л/(моль·К).
-        // Эквивалентно 8.314462 Дж/(моль·К), так как 1 Дж = 1 кПа·л.
         const R = 8.314462;                       // кПа·л/(моль·К)
         const LEL_CH4_PCT_VOL_DEFAULT = 5.0;      // НКПР метана (CH₄) по умолчанию, %VOL
         const PPM_PER_PCT_VOL = 10000;            // 1 %VOL = 10 000 ppm
 
-        /* Пороги предупреждений о выходе за типичный диапазон (в ppm).
-         * Запись для CH₄ (16.04) удалена: порог для метана теперь всегда
-         * пересчитывается динамически в convert() через lelPctVol × PPM_PER_PCT_VOL.
-         */
         const RANGE_THRESHOLDS = {
             32.00: 300000,   // O₂: 30% VOL
             34.08: 200,      // H₂S: 200 ppm
@@ -439,30 +432,18 @@
             ugm3:       'res-ugm3'
         };
 
-        /** Сохранённые данные последнего успешного расчёта */
         let lastCalc = null;
 
         /* =============================================================
          *  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
          * ============================================================= */
 
-        /**
-         * Экранирует HTML-сущности для безопасной вставки в innerHTML.
-         * @param {string} text - исходный текст
-         * @returns {string} - экранированный текст
-         */
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
 
-        /**
-         * Вычисляет PPM_PER_PCT_LEL на основе выбранного НКПР.
-         * Единственный источник истины для числа ppm/%LEL во всей программе.
-         * @param {number} lelPctVol - НКПР в %VOL (5.0 или 4.4)
-         * @returns {number} - ppm на 1 %LEL
-         */
         function calcPpmPerPctLel(lelPctVol) {
             return lelPctVol * PPM_PER_PCT_VOL / 100;
         }
@@ -471,57 +452,36 @@
          *  ДИНАМИЧЕСКОЕ УПРАВЛЕНИЕ ИНТЕРФЕЙСОМ
          * ============================================================= */
 
-        /**
-         * Обновляет текстовые подсказки, связанные с НКПР метана.
-         * Использует calcPpmPerPctLel() как единственный источник числа ppm/%LEL.
-         * Вызывается при инициализации, смене газа и изменении #lelSelect.
-         */
         function updateLelTexts() {
             var isCH4 = (elGas.value === '16.04');
             var lelPctVol = isCH4 ? parseFloat(elLelSelect.value) : LEL_CH4_PCT_VOL_DEFAULT;
             var ppmPerLel = calcPpmPerPctLel(lelPctVol);
             var pctVolPerLel = lelPctVol / 100;
 
-            // Форматирование: ppm — целое число, %VOL — с запятой по русской локали
             var ppmStr = Math.round(ppmPerLel).toString();
             var pctVolStr = pctVolPerLel.toLocaleString('ru-RU');
             var lelPctVolStr = lelPctVol.toFixed(1).replace('.', ',');
 
-            // Подсказка рядом с полем единиц
             elLelHint.textContent = '1 %LEL (CH₄) = ' + ppmStr + ' ppm = ' + pctVolStr + ' %VOL';
 
-            // Абзац в блоке «Метрологическое обоснование»
             if (elNoteLelText) {
                 elNoteLelText.innerHTML = 'Для метана (CH₄) дополнительно используется значение НКПР = ' +
                     lelPctVolStr + ' %VOL,<br>откуда: 1 %LEL = ' + pctVolStr + ' %VOL = ' + ppmStr + ' ppm.';
             }
         }
 
-        /**
-         * Перестраивает список единиц ввода и видимость строк
-         * %VOL / %LEL в зависимости от выбранного газа.
-         * Вызывается при смене газа.
-         * 
-         * ВАЖНО: Для CH₄ используется "%VOL" вместо "%" в списке ввода,
-         * чтобы явно отделить объёмные проценты от %LEL и избежать путаницы.
-         * Для остальных газов остаётся "%".
-         */
         function updateInterface() {
             const isCH4 = (elGas.value === '16.04');
             const prevUnit = elUnit.value;
 
-            // Показываем/скрываем строку выбора НКПР
             elLelRow.style.display = isCH4 ? 'grid' : 'none';
 
-            // Формируем список единиц (с ugm3)
             elUnit.innerHTML = '';
             const units = [
                 { value: 'ppm',     label: 'ppm (объёмных частей на миллион)' },
                 { value: 'ppb',     label: 'ppb (объёмных частей на миллиард)' }
             ];
             
-            // Для CH₄: "%VOL" вместо "%" (чтобы явно отделить от %LEL)
-            // Для остальных газов: "%" (объёмные проценты)
             if (isCH4) {
                 units.push({ value: 'percent_vol', label: '%VOL (объёмных процентов)' });
                 units.push({ value: 'percent_lel', label: '%LEL (процентов НКПР)' });
@@ -541,51 +501,28 @@
                 elUnit.appendChild(opt);
             });
 
-            // Если предыдущая единица была CH₄-специфична, а газ сменился — сброс к ppm
+            // Сброс к ppm при смене газа, если предыдущая единица не подходит
             if (!isCH4 && (prevUnit === 'percent_vol' || prevUnit === 'percent_lel')) {
                 elUnit.value = 'ppm';
             } else if (isCH4 && prevUnit === 'percent') {
-                // Если сменили с другого газа на CH₄, а там был "%" — сброс к ppm
                 elUnit.value = 'ppm';
             } else {
                 elUnit.value = prevUnit;
             }
 
-            // Показываем/скрываем строки %VOL и %LEL в таблице результатов
             document.querySelectorAll('.gas-ch4-only').forEach(function (row) {
                 row.classList.toggle('hidden-row', !isCH4);
             });
 
-            // Подсказка про LEL
             elLelHint.style.display = isCH4 ? 'inline' : 'none';
 
-            // Синхронизируем текстовые подсказки НКПР
             updateLelTexts();
         }
 
         /* =============================================================
          *  ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ
-         *
-         *  Алгоритм:
-         *  1. Проверяем наличие числовых значений (isNaN).
-         *  2. Проверяем физический смысл:
-         *     - концентрация не может быть отрицательной;
-         *     - абсолютное давление должно быть > 0 кПа;
-         *     - абсолютная температура должна быть > 0 K.
-         *
-         *  Проверка температуры выполняется через абсолютную температуру T,
-         *  а не через сравнение tC с -273.15 °C. Это исключает проблемы
-         *  представления чисел с плавающей точкой и соответствует
-         *  математической модели (уравнение Менделеева—Клапейрона).
          * ============================================================= */
 
-        /**
-         * Проверяет корректность входных данных.
-         * @param {number} val  — значение концентрации
-         * @param {number} T    — абсолютная температура, К (tC + 273.15)
-         * @param {number} pKPa — абсолютное давление, кПа
-         * @returns {string|null} null, если данные корректны; иначе — текст ошибки.
-         */
         function validateInputs(val, T, pKPa) {
             if (isNaN(val))        return 'Введите числовое значение концентрации.';
             if (val < 0)           return 'Концентрация не может быть отрицательной.';
@@ -597,7 +534,7 @@
         }
 
         function showError(msg) {
-            elErrorBox.textContent = ' ' + msg;
+            elErrorBox.textContent = '⚠ ' + msg;
             elErrorBox.classList.add('visible');
         }
 
@@ -624,18 +561,6 @@
 
         /* =============================================================
          *  ОСНОВНОЙ РАСЧЁТ
-         *
-         *  Архитектура вычислений:
-         *    Введённое значение → базовое значение (ppm) → каждая
-         *    отображаемая единица рассчитывается НЕЗАВИСИМО из ppm.
-         *
-         *  Это исключает накопление ошибок округления при
-         *  последовательных пересчётах.
-         *
-         *  Формулы:
-         *    C(мг/м³) = C(ppm) × M × P / (R × T)
-         *    C(ppm)   = C(мг/м³) × R × T / (M × P)
-         *  где R = 8.314462 кПа·л/(моль·К), P — кПа, T — К, M — г/моль
          * ============================================================= */
 
         function convert() {
@@ -656,19 +581,8 @@
             var tC   = parseFloat(elTemp.value);
             var pKPa = parseFloat(elPress.value);
 
-            /* ---------------------------------------------------------
-             *  ШАГ 0. Вычисление абсолютной температуры ДО валидации.
-             *  Проверка T > 0 K выполняется вместо tC > −273.15 °C,
-             *  что исключает погрешности представления чисел с
-             *  плавающей точкой.
-             * --------------------------------------------------------- */
-            var T = tC + 273.15;                  // абсолютная температура, К
+            var T = tC + 273.15;
 
-            /* ---------------------------------------------------------
-             *  ШАГ 1. Полная проверка входных данных.
-             *  При ошибке — вывод сообщения, очистка результатов,
-             *  прекращение вычислений.
-             * --------------------------------------------------------- */
             var err = validateInputs(val, T, pKPa);
             if (err) {
                 showError(err);
@@ -677,19 +591,10 @@
                 return;
             }
 
-            /* ---------------------------------------------------------
-             *  ШАГ 2. Вычисление PPM_PER_PCT_LEL на основе выбранного НКПР.
-             *  Для CH используем значение из select, для остальных — 0.
-             * --------------------------------------------------------- */
             var isCH4 = (M === 16.04);
             var lelPctVol = isCH4 ? parseFloat(elLelSelect.value) : LEL_CH4_PCT_VOL_DEFAULT;
             var PPM_PER_PCT_LEL = calcPpmPerPctLel(lelPctVol);
 
-            /* ---------------------------------------------------------
-             *  ШАГ 3. Приведение входного значения к базовой единице ppm.
-             *  ppm — единственное внутреннее базовое значение, из которого
-             *  независимо рассчитываются все остальные единицы.
-             * --------------------------------------------------------- */
             var ppm;
             switch (unit) {
                 case 'ppm':
@@ -702,26 +607,21 @@
                     ppm = val * PPM_PER_PCT_VOL;
                     break;
                 case 'percent_vol':
-                    // Для CH₄: %VOL = % (объёмные проценты), формула идентична
                     ppm = val * PPM_PER_PCT_VOL;
                     break;
                 case 'percent_lel':
                     ppm = val * PPM_PER_PCT_LEL;
                     break;
                 case 'mgm3':
-                    // C(ppm) = C(мг/м³) × R × T / (M × P)
                     ppm = (val * R * T) / (M * pKPa);
                     break;
                 case 'gm3':
-                    // 1 г/м³ = 1000 мг/м³
                     ppm = (val * 1000 * R * T) / (M * pKPa);
                     break;
                 case 'ugm3':
-                    // 1 мкг/м³ = 0.001 мг/м³
                     ppm = (val * R * T) / (M * pKPa * 1000);
                     break;
                 default:
-                    // Явная обработка неизвестной единицы вместо молчаливого ppm = 0
                     console.warn('Неизвестная единица измерения:', unit);
                     showError('Внутренняя ошибка: неизвестная единица измерения.');
                     clearResultCells();
@@ -729,31 +629,15 @@
                     return;
             }
 
-            /* ---------------------------------------------------------
-             *  ШАГ 4. Независимый расчёт каждой отображаемой единицы
-             *  непосредственно из базового значения ppm.
-             *  Запрещено: ppm → мг/м³ → г/м³ (последовательный пересчёт).
-             *  Разрешено: каждая единица = f(ppm).
-             * --------------------------------------------------------- */
-
-            // Объёмные единицы (прямые коэффициенты от ppm)
             var ppb        = ppm * 1000;
             var percent    = ppm / PPM_PER_PCT_VOL;
-            var percentVol = percent;  // percentVol = percent — одно вычисление
+            var percentVol = percent;
             var percentLel = ppm / PPM_PER_PCT_LEL;
 
-            // Массовые единицы — каждая рассчитывается напрямую из ppm
-            // по уравнению Менделеева—Клапейрона, без цепочечных пересчётов.
-            // C(мг/м³) = C(ppm) × M × P / (R × T)
             var mgm3 = (ppm * M * pKPa) / (R * T);
-            // C(г/м³) = C(ppm) × M × P / (R × T × 1000)
             var gm3  = (ppm * M * pKPa) / (R * T * 1000);
-            // C(мкг/м³) = C(ppm) × M × P × 1000 / (R × T)
             var ugm3 = (ppm * M * pKPa * 1000) / (R * T);
 
-            /* ---------------------------------------------------------
-             *  ШАГ 5. Вывод в таблицу результатов
-             * --------------------------------------------------------- */
             document.getElementById(resIds.ppm).textContent        = fmt(ppm);
             document.getElementById(resIds.ppb).textContent        = fmt(ppb);
             document.getElementById(resIds.percent).textContent    = fmt(percent);
@@ -763,22 +647,14 @@
             document.getElementById(resIds.gm3).textContent        = fmt(gm3);
             document.getElementById(resIds.ugm3).textContent       = fmt(ugm3);
 
-            /* ---------------------------------------------------------
-             *  ШАГ 6. Проверка на выход за типичный диапазон
-             *  Для CH₄ порог пересчитывается на основе выбранного НКПР.
-             * --------------------------------------------------------- */
             var threshold = RANGE_THRESHOLDS[M];
             if (isCH4) {
-                // Пересчитываем порог для CH: 100% LEL = lelPctVol %VOL = lelPctVol × 10000 ppm
                 threshold = lelPctVol * PPM_PER_PCT_VOL;
             }
             if (threshold && ppm > threshold) {
                 showWarning('Введённое значение выходит за типичный диапазон переносных газоанализаторов. Проверьте корректность исходных данных.');
             }
 
-            /* ---------------------------------------------------------
-             *  ШАГ 7. Сохранение для блока «Показать расчёт» и копирования
-             * --------------------------------------------------------- */
             lastCalc = {
                 gasName:    elGas.options[elGas.selectedIndex].text,
                 M:          M,
@@ -805,26 +681,16 @@
          *  ФОРМАТИРОВАНИЕ ЧИСЕЛ
          * ============================================================= */
 
-        /**
-         * Форматирует число для отображения:
-         *  - убирает «-0»;
-         *  - автоматически выбирает обычную / экспоненциальную запись;
-         *  - удаляет лишние нули после запятой.
-         *  ВАЖНО: форматирование применяется только при выводу.
-         *  Внутренние вычисления используют полное значение IEEE 754.
-         */
         function fmt(n) {
             if (!isFinite(n) || isNaN(n)) return '—';
-            if (Math.abs(n) < 1e-15)      return '0';       // убираем «-0» и шум
+            if (Math.abs(n) < 1e-15)      return '0';
 
             var abs = Math.abs(n);
 
-            // Экспоненциальная запись для очень малых / очень больших
             if (abs < 0.001 || abs >= 1e6) {
                 return n.toExponential(5);
             }
 
-            // Обычная запись, до 7 значащих цифр, без хвостовых нулей
             var s = n.toPrecision(7);
             if (s.indexOf('.') !== -1) {
                 s = s.replace(/0+$/, '').replace(/\.$/, '');
@@ -836,18 +702,12 @@
          *  КНОПКИ УПРАВЛЕНИЯ
          * ============================================================= */
 
-        /** Установить стандартные условия и пересчитать. */
         function setStandardConditions() {
             elTemp.value  = '20';
             elPress.value = '101.325';
             convert();
         }
 
-        /**
-         * Очистить: значение, результаты, ошибки, предупреждения, блок расчёта.
-         * Газ оставляет выбранным. T и P возвращает к стандартным.
-         * НЕ выполняет автоматический расчёт.
-         */
         function clearAll() {
             elValue.value = '';
             clearResultCells();
@@ -857,12 +717,10 @@
             elCalcDet.innerHTML = '';
             lastCalc = null;
 
-            // Стандартные условия без пересчёта
             elTemp.value  = '20';
             elPress.value = '101.325';
         }
 
-        /** Скопировать результаты последнего расчёта в буфер обмена. */
         function copyResults() {
             if (!lastCalc) {
                 showError('Сначала выполните расчёт.');
@@ -894,7 +752,6 @@
             text += '  г/м³        = ' + fmt(c.gm3) + '\n';
             text += '  мкг/м³      = ' + fmt(c.ugm3) + '\n';
 
-            // Используем современный Clipboard API с fallback
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(text).then(
                     function () { alert('✓ Результаты скопированы в буфер обмена.'); },
@@ -905,10 +762,6 @@
             }
         }
 
-        /**
-         * Fallback-копирование для file:// и старых браузеров.
-         * Использует prompt() как последний уровень деградации.
-         */
         function fallbackCopy(text) {
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(
@@ -920,7 +773,6 @@
             }
         }
 
-        /** Показать / скрыть блок пошагового расчёта. */
         function toggleCalcDetails() {
             if (!lastCalc) {
                 showError('Сначала выполните расчёт.');
@@ -934,14 +786,12 @@
             elCalcDet.classList.add('visible');
         }
 
-        /** Формирует HTML пошагового расчёта для протокола поверки. */
         function renderCalcDetails() {
             var c = lastCalc;
             var isMassUnit = (c.unit === 'mgm3' || c.unit === 'gm3' || c.unit === 'ugm3');
 
             var h = '<h4>📋 Пошаговый расчёт</h4>';
 
-            /* --- 1. Исходные данные --- */
             h += '<div class="section">';
             h += '<div class="section-title">1. Исходные данные</div>';
             h += 'Газ: ' + escapeHtml(c.gasName) + '<br>';
@@ -955,18 +805,15 @@
             }
             h += '</div>';
 
-            /* --- 2. Исходная величина --- */
             h += '<div class="section">';
             h += '<div class="section-title">2. Исходная величина</div>';
             h += 'C = ' + fmt(c.val) + ' ' + escapeHtml(c.unitLabel) + '<br>';
             h += '</div>';
 
-            /* --- 3. Формула и подстановка --- */
             h += '<div class="section">';
             h += '<div class="section-title">3. Приведение к ppm и пересчёт</div>';
 
             if (isMassUnit) {
-                /* Из мг/м³, г/м³ или мкг/м³ → ppm */
                 var valMg, factorDesc;
                 if (c.unit === 'gm3') {
                     valMg = c.val * 1000;
@@ -993,7 +840,6 @@
                 h += 'Знаменатель: ' + c.M + ' &times; ' + c.pKPa + ' = ' + fmt(den) + '<br>';
                 h += '<div class="formula-line">C(ppm) = ' + fmt(num) + ' / ' + fmt(den) + ' = ' + fmt(c.ppm) + '</div><br><br>';
 
-                /* Обратный пересчёт для проверки */
                 var numRev = c.ppm * c.M * c.pKPa;
                 var denRev = R * c.T;
                 h += 'Обратная проверка (ppm &rarr; мг/м³):<br>';
@@ -1001,7 +847,6 @@
                 h += '= ' + fmt(numRev) + ' / ' + fmt(denRev) + ' = ' + fmt(c.mgm3) + ' мг/м³<br>';
 
             } else {
-                /* Из объёмной единицы → ppm, затем → мг/м³ */
                 var convLine = '';
                 if (c.unit === 'ppm') {
                     convLine = 'C(ppm) = ' + fmt(c.val) + ' (уже в ppm)';
@@ -1028,7 +873,6 @@
             }
             h += '</div>';
 
-            /* --- 4. Окончательные результаты --- */
             h += '<div class="section">';
             h += '<div class="section-title">4. Окончательные результаты</div>';
             h += 'C = ' + fmt(c.ppm) + ' ppm<br>';
@@ -1050,29 +894,30 @@
          *  ИНИЦИАЛИЗАЦИЯ
          * ============================================================= */
 
-        // Для select газа — отдельный обработчик: сначала обновляем интерфейс, потом считаем.
         elGas.addEventListener('change', function () {
             updateInterface();
             convert();
         });
 
-        // Для select НКПР — пересчёт при изменении (только для CH₄)
         elLelSelect.addEventListener('change', function () {
             updateLelTexts();
             convert();
         });
 
-        // Для select единиц — только change (событие input у select не возникает).
         elUnit.addEventListener('change', convert);
 
-        // Для числовых полей — и input (мгновенный отклик), и change (для стрелок и Enter).
         [elValue, elTemp, elPress].forEach(function (el) {
             el.addEventListener('input', convert);
             el.addEventListener('change', convert);
         });
 
-        // Первичная настройка интерфейса и расчёт
+        // Первичная настройка интерфейса
         updateInterface();
+        
+        // Явно устанавливаем единицу по умолчанию после формирования списка
+        elUnit.value = 'ppm';
+        
+        // Первичный расчёт (не выполнится, т.к. поле значения пустое)
         convert();
     </script>
 </body>
