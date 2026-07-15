@@ -242,7 +242,7 @@
 <body>
     <div class="page-wrapper">
         <div class="header">
-            <h1>⚖️ Конвертер концентрации газов</h1>
+            <h1>️ Конвертер концентрации газов</h1>
             <p>Метрологический расчёт на основе уравнения состояния идеального газа</p>
         </div>
 
@@ -501,6 +501,10 @@
          * Перестраивает список единиц ввода и видимость строк
          * %VOL / %LEL в зависимости от выбранного газа.
          * Вызывается при смене газа.
+         * 
+         * ВАЖНО: Для CH₄ используется "%VOL" вместо "%" в списке ввода,
+         * чтобы явно отделить объёмные проценты от %LEL и избежать путаницы.
+         * Для остальных газов остаётся "%".
          */
         function updateInterface() {
             const isCH4 = (elGas.value === '16.04');
@@ -513,13 +517,18 @@
             elUnit.innerHTML = '';
             const units = [
                 { value: 'ppm',     label: 'ppm (объёмных частей на миллион)' },
-                { value: 'ppb',     label: 'ppb (объёмных частей на миллиард)' },
-                { value: 'percent', label: '% (объёмные проценты)' }
+                { value: 'ppb',     label: 'ppb (объёмных частей на миллиард)' }
             ];
+            
+            // Для CH₄: "%VOL" вместо "%" (чтобы явно отделить от %LEL)
+            // Для остальных газов: "%" (объёмные проценты)
             if (isCH4) {
                 units.push({ value: 'percent_vol', label: '%VOL (объёмных процентов)' });
                 units.push({ value: 'percent_lel', label: '%LEL (процентов НКПР)' });
+            } else {
+                units.push({ value: 'percent', label: '% (объёмные проценты)' });
             }
+            
             units.push(
                 { value: 'mgm3', label: 'мг/м³' },
                 { value: 'gm3',  label: 'г/м³' },
@@ -534,6 +543,9 @@
 
             // Если предыдущая единица была CH₄-специфична, а газ сменился — сброс к ppm
             if (!isCH4 && (prevUnit === 'percent_vol' || prevUnit === 'percent_lel')) {
+                elUnit.value = 'ppm';
+            } else if (isCH4 && prevUnit === 'percent') {
+                // Если сменили с другого газа на CH₄, а там был "%" — сброс к ppm
                 elUnit.value = 'ppm';
             } else {
                 elUnit.value = prevUnit;
@@ -585,7 +597,7 @@
         }
 
         function showError(msg) {
-            elErrorBox.textContent = '⚠ ' + msg;
+            elErrorBox.textContent = ' ' + msg;
             elErrorBox.classList.add('visible');
         }
 
@@ -595,7 +607,7 @@
         }
 
         function showWarning(msg) {
-            elWarningBox.textContent = ' ' + msg;
+            elWarningBox.textContent = '⚠ ' + msg;
             elWarningBox.classList.add('visible');
         }
 
@@ -687,7 +699,10 @@
                     ppm = val / 1000;
                     break;
                 case 'percent':
+                    ppm = val * PPM_PER_PCT_VOL;
+                    break;
                 case 'percent_vol':
+                    // Для CH₄: %VOL = % (объёмные проценты), формула идентична
                     ppm = val * PPM_PER_PCT_VOL;
                     break;
                 case 'percent_lel':
@@ -754,7 +769,7 @@
              * --------------------------------------------------------- */
             var threshold = RANGE_THRESHOLDS[M];
             if (isCH4) {
-                // Пересчитываем порог для CH₄: 100% LEL = lelPctVol %VOL = lelPctVol × 10000 ppm
+                // Пересчитываем порог для CH: 100% LEL = lelPctVol %VOL = lelPctVol × 10000 ppm
                 threshold = lelPctVol * PPM_PER_PCT_VOL;
             }
             if (threshold && ppm > threshold) {
@@ -795,7 +810,7 @@
          *  - убирает «-0»;
          *  - автоматически выбирает обычную / экспоненциальную запись;
          *  - удаляет лишние нули после запятой.
-         *  ВАЖНО: форматирование применяется только при выводе.
+         *  ВАЖНО: форматирование применяется только при выводу.
          *  Внутренние вычисления используют полное значение IEEE 754.
          */
         function fmt(n) {
