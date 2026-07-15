@@ -11,6 +11,7 @@
             --accent: #c0392b;
             --success: #27ae60;
             --warning: #e67e22;
+            --info: #3498db;
             --bg: #f4f6f8;
             --card: #ffffff;
             --text: #2c3e50;
@@ -115,6 +116,18 @@
             display: none;
         }
         .warning-box.visible { display: block; }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid var(--info);
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: #1a4d7a;
+            display: none;
+        }
+        .info-box.visible { display: block; }
 
         .button-panel {
             display: flex;
@@ -251,15 +264,13 @@
 
             <div class="error-box" id="errorBox"></div>
             <div class="warning-box" id="warningBox"></div>
+            <div class="info-box" id="infoBox"></div>
 
             <div class="form-row cols-2">
                 <div class="form-group">
                     <label for="gasSelect">Газ</label>
                     <select id="gasSelect">
-                        <option value="32.00">Кислород (O₂) — 32.00 г/моль</option>
-                        <option value="34.08">Сероводород (H₂S) — 34.08 г/моль</option>
-                        <option value="16.04">Метан (CH₄) — 16.04 г/моль</option>
-                        <option value="28.01">Угарный газ (CO) — 28.01 г/моль</option>
+                        <!-- Заполняется динамически из GASES -->
                     </select>
                 </div>
                 <div class="form-group">
@@ -272,7 +283,7 @@
                 <div class="form-group">
                     <label for="inputUnit">Единица измерения</label>
                     <select id="inputUnit">
-                        <!-- Заполняется динамически в updateInterface() -->
+                        <!-- Заполняется динамически -->
                     </select>
                 </div>
                 <div class="form-group">
@@ -280,7 +291,7 @@
                     <div style="font-size: 13px; color: var(--text-light); padding: 10px 0;">
                         1 % (об.) = 1 %VOL = 10 000 ppm<br>
                         1 ppm = 1 000 ppb<br>
-                        <span id="lelHint" style="display:none;">1 %LEL (CH₄) = 500 ppm = 0,05 %VOL</span>
+                        <span id="lelHint" style="display:none;">1 %LEL (CH) = 500 ppm = 0,05 %VOL</span>
                     </div>
                 </div>
             </div>
@@ -292,6 +303,9 @@
                         <option value="5.0">5,0 %VOL (по умолчанию)</option>
                         <option value="4.4" title="Конкретный источник/стандарт для протокола поверки должен подтверждаться отдельно. Программа не привязывает значения к конкретному ГОСТ/ISO/OSHA — это ответственность метролога.">4,4 %VOL (альтернативное значение)</option>
                     </select>
+                    <div class="field-hint" style="margin-top: 8px; font-size: 11px; color: var(--text-light);">
+                        Используйте значение НКПР, соответствующее настройке прибора, применяемой методике или требованиям производителя.
+                    </div>
                 </div>
                 <div class="form-group">
                     <label style="color: transparent;">&nbsp;</label>
@@ -393,16 +407,59 @@
 
     <script>
         /* =============================================================
-         *  КОНСТАНТЫ
+         *  КОНСТАНТЫ И МОДЕЛЬ ДАННЫХ
          * ============================================================= */
-        const R = 8.314462;                       // кПа·л/(моль·К)
-        const LEL_CH4_PCT_VOL_DEFAULT = 5.0;      // НКПР метана (CH₄) по умолчанию, %VOL
-        const PPM_PER_PCT_VOL = 10000;            // 1 %VOL = 10 000 ppm
+        
+        // Объектная модель газов — все свойства собраны в одном месте
+        const GASES = {
+            O2: {
+                id: 'O2',
+                name: 'Кислород',
+                formula: 'O₂',
+                M: 32.00,                    // г/моль
+                threshold: 300000,           // ppm (30% VOL)
+                supportsLEL: false
+            },
+            H2S: {
+                id: 'H2S',
+                name: 'Сероводород',
+                formula: 'H₂S',
+                M: 34.08,                    // г/моль
+                threshold: 200,              // ppm
+                supportsLEL: false
+            },
+            CO: {
+                id: 'CO',
+                name: 'Угарный газ',
+                formula: 'CO',
+                M: 28.01,                    // г/моль
+                threshold: 1000,             // ppm
+                supportsLEL: false
+            },
+            CH4: {
+                id: 'CH4',
+                name: 'Метан',
+                formula: 'CH₄',
+                M: 16.04,                    // г/моль
+                threshold: null,             // динамически вычисляется из НКПР
+                supportsLEL: true
+            }
+        };
 
-        const RANGE_THRESHOLDS = {
-            32.00: 300000,   // O₂: 30% VOL
-            34.08: 200,      // H₂S: 200 ppm
-            28.01: 1000      // CO: 1000 ppm
+        // Порядок газов в списке
+        const GASES_ORDER = ['O2', 'H2S', 'CH4', 'CO'];
+
+        // Газовая постоянная (единое обозначение во всей программе)
+        const R = 8.314462;                       // кПа·л/(моль·К)
+        
+        // Константы для пересчёта
+        const PPM_PER_PCT_VOL = 10000;            // 1 %VOL = 10 000 ppm
+        const LEL_CH4_PCT_VOL_DEFAULT = 5.0;      // НКПР метана по умолчанию, %VOL
+
+        // Пороги давления для предупреждения о модели идеального газа
+        const PRESSURE_WARNING = {
+            min: 80,    // кПа
+            max: 150    // кПа
         };
 
         /* =============================================================
@@ -417,6 +474,7 @@
         const elLelRow     = document.getElementById('lelSelectRow');
         const elErrorBox   = document.getElementById('errorBox');
         const elWarningBox = document.getElementById('warningBox');
+        const elInfoBox    = document.getElementById('infoBox');
         const elCalcDet    = document.getElementById('calcDetails');
         const elLelHint    = document.getElementById('lelHint');
         const elNoteLelText = document.getElementById('noteLelText');
@@ -432,50 +490,117 @@
             ugm3:       'res-ugm3'
         };
 
+        /** Сохранённые данные последнего успешного расчёта */
         let lastCalc = null;
 
         /* =============================================================
          *  ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
          * ============================================================= */
 
+        /**
+         * Экранирует HTML-сущности для безопасной вставки в innerHTML.
+         * @param {string} text - исходный текст
+         * @returns {string} - экранированный текст
+         */
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
         }
 
+        /**
+         * Вычисляет PPM_PER_PCT_LEL на основе выбранного НКПР.
+         * Единственный источник истины для числа ppm/%LEL во всей программе.
+         * @param {number} lelPctVol - НКПР в %VOL (5.0 или 4.4)
+         * @returns {number} - ppm на 1 %LEL
+         */
         function calcPpmPerPctLel(lelPctVol) {
             return lelPctVol * PPM_PER_PCT_VOL / 100;
+        }
+
+        /**
+         * Получает текущий выбранный газ из объекта GASES.
+         * @returns {Object} - объект газа
+         */
+        function getCurrentGas() {
+            return GASES[elGas.value];
+        }
+
+        /**
+         * Получает порог предупреждения для текущего газа.
+         * @param {Object} gas - объект газа
+         * @param {number} lelPctVol - НКПР для CH₄
+         * @returns {number|null} - порог в ppm или null
+         */
+        function getThreshold(gas, lelPctVol) {
+            if (gas.id === 'CH4' && lelPctVol) {
+                return lelPctVol * PPM_PER_PCT_VOL;
+            }
+            return gas.threshold;
         }
 
         /* =============================================================
          *  ДИНАМИЧЕСКОЕ УПРАВЛЕНИЕ ИНТЕРФЕЙСОМ
          * ============================================================= */
 
+        /**
+         * Инициализирует список газов в select.
+         */
+        function initGasSelect() {
+            elGas.innerHTML = '';
+            GASES_ORDER.forEach(function(gasId) {
+                const gas = GASES[gasId];
+                const opt = document.createElement('option');
+                opt.value = gasId;
+                opt.textContent = `${gas.name} (${gas.formula}) — ${gas.M.toFixed(2)} г/моль`;
+                elGas.appendChild(opt);
+            });
+        }
+
+        /**
+         * Обновляет текстовые подсказки, связанные с НКПР метана.
+         * Использует calcPpmPerPctLel() как единственный источник числа ppm/%LEL.
+         * Вызывается при инициализации, смене газа и изменении #lelSelect.
+         */
         function updateLelTexts() {
-            var isCH4 = (elGas.value === '16.04');
-            var lelPctVol = isCH4 ? parseFloat(elLelSelect.value) : LEL_CH4_PCT_VOL_DEFAULT;
-            var ppmPerLel = calcPpmPerPctLel(lelPctVol);
-            var pctVolPerLel = lelPctVol / 100;
+            const gas = getCurrentGas();
+            const isCH4 = (gas.id === 'CH4');
+            const lelPctVol = isCH4 ? parseFloat(elLelSelect.value) : LEL_CH4_PCT_VOL_DEFAULT;
+            const ppmPerLel = calcPpmPerPctLel(lelPctVol);
+            const pctVolPerLel = lelPctVol / 100;
 
-            var ppmStr = Math.round(ppmPerLel).toString();
-            var pctVolStr = pctVolPerLel.toLocaleString('ru-RU');
-            var lelPctVolStr = lelPctVol.toFixed(1).replace('.', ',');
+            // Форматирование: ppm — целое число, %VOL — с запятой по русской локали
+            const ppmStr = Math.round(ppmPerLel).toString();
+            const pctVolStr = pctVolPerLel.toLocaleString('ru-RU');
+            const lelPctVolStr = lelPctVol.toFixed(1).replace('.', ',');
 
-            elLelHint.textContent = '1 %LEL (CH₄) = ' + ppmStr + ' ppm = ' + pctVolStr + ' %VOL';
+            // Подсказка рядом с полем единиц
+            elLelHint.textContent = `1 %LEL (CH₄) = ${ppmStr} ppm = ${pctVolStr} %VOL`;
 
+            // Абзац в блоке «Метрологическое обоснование»
             if (elNoteLelText) {
-                elNoteLelText.innerHTML = 'Для метана (CH₄) дополнительно используется значение НКПР = ' +
-                    lelPctVolStr + ' %VOL,<br>откуда: 1 %LEL = ' + pctVolStr + ' %VOL = ' + ppmStr + ' ppm.';
+                elNoteLelText.innerHTML = `Для метана (CH₄) дополнительно используется значение НКПР = ${lelPctVolStr} %VOL,<br>откуда: 1 %LEL = ${pctVolStr} %VOL = ${ppmStr} ppm.`;
             }
         }
 
+        /**
+         * Перестраивает список единиц ввода и видимость строк
+         * %VOL / %LEL в зависимости от выбранного газа.
+         * Вызывается при смене газа.
+         * 
+         * ВАЖНО: Для CH₄ используется "%VOL" вместо "%" в списке ввода,
+         * чтобы явно отделить объёмные проценты от %LEL и избежать путаницы.
+         * Для остальных газов остаётся "%".
+         */
         function updateInterface() {
-            const isCH4 = (elGas.value === '16.04');
+            const gas = getCurrentGas();
+            const isCH4 = (gas.id === 'CH4');
             const prevUnit = elUnit.value;
 
+            // Показываем/скрываем строку выбора НКПР
             elLelRow.style.display = isCH4 ? 'grid' : 'none';
 
+            // Формируем список единиц (с ugm3)
             elUnit.innerHTML = '';
             const units = [
                 { value: 'ppm',     label: 'ppm (объёмных частей на миллион)' },
@@ -495,7 +620,7 @@
                 { value: 'ugm3', label: 'мкг/м³' }
             );
             units.forEach(function (u) {
-                var opt = document.createElement('option');
+                const opt = document.createElement('option');
                 opt.value = u.value;
                 opt.textContent = u.label;
                 elUnit.appendChild(opt);
@@ -510,12 +635,15 @@
                 elUnit.value = prevUnit;
             }
 
+            // Показываем/скрываем строки %VOL и %LEL в таблице результатов
             document.querySelectorAll('.gas-ch4-only').forEach(function (row) {
                 row.classList.toggle('hidden-row', !isCH4);
             });
 
+            // Подсказка про LEL
             elLelHint.style.display = isCH4 ? 'inline' : 'none';
 
+            // Синхронизируем текстовые подсказки НКПР
             updateLelTexts();
         }
 
@@ -523,6 +651,13 @@
          *  ВАЛИДАЦИЯ ВХОДНЫХ ДАННЫХ
          * ============================================================= */
 
+        /**
+         * Проверяет корректность входных данных.
+         * @param {number} val  — значение концентрации
+         * @param {number} T    — абсолютная температура, К (tC + 273.15)
+         * @param {number} pKPa — абсолютное давление, кПа
+         * @returns {string|null} null, если данные корректны; иначе — текст ошибки.
+         */
         function validateInputs(val, T, pKPa) {
             if (isNaN(val))        return 'Введите числовое значение концентрации.';
             if (val < 0)           return 'Концентрация не может быть отрицательной.';
@@ -544,13 +679,23 @@
         }
 
         function showWarning(msg) {
-            elWarningBox.textContent = '⚠ ' + msg;
+            elWarningBox.textContent = ' ' + msg;
             elWarningBox.classList.add('visible');
         }
 
         function clearWarning() {
             elWarningBox.textContent = '';
             elWarningBox.classList.remove('visible');
+        }
+
+        function showInfo(msg) {
+            elInfoBox.textContent = 'ℹ ' + msg;
+            elInfoBox.classList.add('visible');
+        }
+
+        function clearInfo() {
+            elInfoBox.textContent = '';
+            elInfoBox.classList.remove('visible');
         }
 
         function clearResultCells() {
@@ -566,24 +711,27 @@
         function convert() {
             clearError();
             clearWarning();
+            clearInfo();
             elCalcDet.classList.remove('visible');
 
-            var valStr = elValue.value.trim();
+            const valStr = elValue.value.trim();
             if (valStr === '') {
                 clearResultCells();
                 lastCalc = null;
                 return;
             }
 
-            var M    = parseFloat(elGas.value);
-            var val  = parseFloat(valStr);
-            var unit = elUnit.value;
-            var tC   = parseFloat(elTemp.value);
-            var pKPa = parseFloat(elPress.value);
+            const gas = getCurrentGas();
+            const val = parseFloat(valStr);
+            const unit = elUnit.value;
+            const tC = parseFloat(elTemp.value);
+            const pKPa = parseFloat(elPress.value);
 
-            var T = tC + 273.15;
+            // Абсолютная температура
+            const T = tC + 273.15;
 
-            var err = validateInputs(val, T, pKPa);
+            // Валидация
+            const err = validateInputs(val, T, pKPa);
             if (err) {
                 showError(err);
                 clearResultCells();
@@ -591,11 +739,13 @@
                 return;
             }
 
-            var isCH4 = (M === 16.04);
-            var lelPctVol = isCH4 ? parseFloat(elLelSelect.value) : LEL_CH4_PCT_VOL_DEFAULT;
-            var PPM_PER_PCT_LEL = calcPpmPerPctLel(lelPctVol);
+            // НКПР для CH₄
+            const isCH4 = (gas.id === 'CH4');
+            const lelPctVol = isCH4 ? parseFloat(elLelSelect.value) : LEL_CH4_PCT_VOL_DEFAULT;
+            const PPM_PER_PCT_LEL = calcPpmPerPctLel(lelPctVol);
 
-            var ppm;
+            // Приведение к ppm (базовая единица)
+            let ppm;
             switch (unit) {
                 case 'ppm':
                     ppm = val;
@@ -604,8 +754,6 @@
                     ppm = val / 1000;
                     break;
                 case 'percent':
-                    ppm = val * PPM_PER_PCT_VOL;
-                    break;
                 case 'percent_vol':
                     ppm = val * PPM_PER_PCT_VOL;
                     break;
@@ -613,13 +761,13 @@
                     ppm = val * PPM_PER_PCT_LEL;
                     break;
                 case 'mgm3':
-                    ppm = (val * R * T) / (M * pKPa);
+                    ppm = (val * R * T) / (gas.M * pKPa);
                     break;
                 case 'gm3':
-                    ppm = (val * 1000 * R * T) / (M * pKPa);
+                    ppm = (val * 1000 * R * T) / (gas.M * pKPa);
                     break;
                 case 'ugm3':
-                    ppm = (val * R * T) / (M * pKPa * 1000);
+                    ppm = (val * R * T) / (gas.M * pKPa * 1000);
                     break;
                 default:
                     console.warn('Неизвестная единица измерения:', unit);
@@ -629,35 +777,41 @@
                     return;
             }
 
-            var ppb        = ppm * 1000;
-            var percent    = ppm / PPM_PER_PCT_VOL;
-            var percentVol = percent;
-            var percentLel = ppm / PPM_PER_PCT_LEL;
+            // Независимый расчёт всех единиц из ppm
+            const ppb = ppm * 1000;
+            const percent = ppm / PPM_PER_PCT_VOL;
+            const percentVol = percent;  // percentVol = percent — одно вычисление
+            const percentLel = ppm / PPM_PER_PCT_LEL;
 
-            var mgm3 = (ppm * M * pKPa) / (R * T);
-            var gm3  = (ppm * M * pKPa) / (R * T * 1000);
-            var ugm3 = (ppm * M * pKPa * 1000) / (R * T);
+            const mgm3 = (ppm * gas.M * pKPa) / (R * T);
+            const gm3 = (ppm * gas.M * pKPa) / (R * T * 1000);
+            const ugm3 = (ppm * gas.M * pKPa * 1000) / (R * T);
 
-            document.getElementById(resIds.ppm).textContent        = fmt(ppm);
-            document.getElementById(resIds.ppb).textContent        = fmt(ppb);
-            document.getElementById(resIds.percent).textContent    = fmt(percent);
+            // Вывод результатов
+            document.getElementById(resIds.ppm).textContent = fmt(ppm);
+            document.getElementById(resIds.ppb).textContent = fmt(ppb);
+            document.getElementById(resIds.percent).textContent = fmt(percent);
             document.getElementById(resIds.percentVol).textContent = fmt(percentVol);
             document.getElementById(resIds.percentLel).textContent = fmt(percentLel);
-            document.getElementById(resIds.mgm3).textContent       = fmt(mgm3);
-            document.getElementById(resIds.gm3).textContent        = fmt(gm3);
-            document.getElementById(resIds.ugm3).textContent       = fmt(ugm3);
+            document.getElementById(resIds.mgm3).textContent = fmt(mgm3);
+            document.getElementById(resIds.gm3).textContent = fmt(gm3);
+            document.getElementById(resIds.ugm3).textContent = fmt(ugm3);
 
-            var threshold = RANGE_THRESHOLDS[M];
-            if (isCH4) {
-                threshold = lelPctVol * PPM_PER_PCT_VOL;
-            }
+            // Проверка порога предупреждения
+            const threshold = getThreshold(gas, lelPctVol);
             if (threshold && ppm > threshold) {
                 showWarning('Введённое значение выходит за типичный диапазон переносных газоанализаторов. Проверьте корректность исходных данных.');
             }
 
+            // Предупреждение о давлении (модель идеального газа)
+            if (pKPa < PRESSURE_WARNING.min || pKPa > PRESSURE_WARNING.max) {
+                showInfo('Используется модель идеального газа без учёта коэффициента сжимаемости (Z). При давлении, значительно отличающемся от атмосферного, возможна дополнительная погрешность расчёта.');
+            }
+
+            // Сохранение для блока «Показать расчёт» и копирования
             lastCalc = {
-                gasName:    elGas.options[elGas.selectedIndex].text,
-                M:          M,
+                gas:        gas,
+                M:          gas.M,
                 tC:         tC,
                 T:          T,
                 pKPa:       pKPa,
@@ -673,7 +827,8 @@
                 gm3:        gm3,
                 ugm3:       ugm3,
                 isCH4:      isCH4,
-                lelPctVol:  isCH4 ? lelPctVol : null
+                lelPctVol:  isCH4 ? lelPctVol : null,
+                ppmPerLel:  isCH4 ? Math.round(PPM_PER_PCT_LEL) : null
             };
         }
 
@@ -685,13 +840,13 @@
             if (!isFinite(n) || isNaN(n)) return '—';
             if (Math.abs(n) < 1e-15)      return '0';
 
-            var abs = Math.abs(n);
+            const abs = Math.abs(n);
 
             if (abs < 0.001 || abs >= 1e6) {
                 return n.toExponential(5);
             }
 
-            var s = n.toPrecision(7);
+            let s = n.toPrecision(7);
             if (s.indexOf('.') !== -1) {
                 s = s.replace(/0+$/, '').replace(/\.$/, '');
             }
@@ -703,7 +858,7 @@
          * ============================================================= */
 
         function setStandardConditions() {
-            elTemp.value  = '20';
+            elTemp.value = '20';
             elPress.value = '101.325';
             convert();
         }
@@ -713,11 +868,12 @@
             clearResultCells();
             clearError();
             clearWarning();
+            clearInfo();
             elCalcDet.classList.remove('visible');
             elCalcDet.innerHTML = '';
             lastCalc = null;
 
-            elTemp.value  = '20';
+            elTemp.value = '20';
             elPress.value = '101.325';
         }
 
@@ -727,30 +883,30 @@
                 return;
             }
 
-            var c = lastCalc;
+            const c = lastCalc;
 
-            var text  = 'КОНВЕРТЕР КОНЦЕНТРАЦИИ ГАЗОВ\n';
+            let text = 'КОНВЕРТЕР КОНЦЕНТРАЦИИ ГАЗОВ\n';
             text += 'Дата: ' + new Date().toLocaleString('ru-RU') + '\n';
             text += '══════════════════════════════════════\n\n';
-            text += 'Газ: ' + c.gasName + '\n';
-            text += 'Температура: ' + c.tC + ' °C  (T = ' + fmt(c.T) + ' К)\n';
-            text += 'Абсолютное давление: ' + c.pKPa + ' кПа\n\n';
-            text += 'Исходная единица: ' + c.unitLabel + '\n';
-            text += 'Исходное значение: ' + fmt(c.val) + '\n';
+            text += `Газ: ${c.gas.name} (${c.gas.formula})\n`;
+            text += `Температура: ${c.tC} °C  (T = ${fmt(c.T)} К)\n`;
+            text += `Абсолютное давление: ${c.pKPa} кПа\n\n`;
+            text += `Исходная единица: ${c.unitLabel}\n`;
+            text += `Исходное значение: ${fmt(c.val)}\n`;
             if (c.isCH4 && c.lelPctVol !== null) {
-                text += 'НКПР метана: ' + c.lelPctVol.toFixed(1).replace('.', ',') + ' %VOL\n';
+                text += `НКПР метана: ${c.lelPctVol.toFixed(1).replace('.', ',')} %VOL\n`;
             }
             text += '\nРЕЗУЛЬТАТЫ:\n';
-            text += '  ppm         = ' + fmt(c.ppm) + '\n';
-            text += '  ppb         = ' + fmt(c.ppb) + '\n';
-            text += '  %           = ' + fmt(c.percent) + '\n';
+            text += `  ppm         = ${fmt(c.ppm)}\n`;
+            text += `  ppb         = ${fmt(c.ppb)}\n`;
+            text += `  %           = ${fmt(c.percent)}\n`;
             if (c.isCH4) {
-                text += '  %VOL        = ' + fmt(c.percentVol) + '\n';
-                text += '  %LEL        = ' + fmt(c.percentLel) + '\n';
+                text += `  %VOL        = ${fmt(c.percentVol)}\n`;
+                text += `  %LEL        = ${fmt(c.percentLel)}\n`;
             }
-            text += '  мг/м³       = ' + fmt(c.mgm3) + '\n';
-            text += '  г/м³        = ' + fmt(c.gm3) + '\n';
-            text += '  мкг/м³      = ' + fmt(c.ugm3) + '\n';
+            text += `  мг/м³       = ${fmt(c.mgm3)}\n`;
+            text += `  г/м³        = ${fmt(c.gm3)}\n`;
+            text += `  мкг/м³      = ${fmt(c.ugm3)}\n`;
 
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(text).then(
@@ -787,47 +943,47 @@
         }
 
         function renderCalcDetails() {
-            var c = lastCalc;
-            var isMassUnit = (c.unit === 'mgm3' || c.unit === 'gm3' || c.unit === 'ugm3');
+            const c = lastCalc;
+            const isMassUnit = (c.unit === 'mgm3' || c.unit === 'gm3' || c.unit === 'ugm3');
 
-            var h = '<h4>📋 Пошаговый расчёт</h4>';
+            let h = '<h4>📋 Пошаговый расчёт</h4>';
 
             h += '<div class="section">';
             h += '<div class="section-title">1. Исходные данные</div>';
-            h += 'Газ: ' + escapeHtml(c.gasName) + '<br>';
-            h += 'Молярная масса: M = ' + c.M + ' г/моль<br>';
-            h += 'Температура: t = ' + c.tC + ' °C &rarr; T = ' + fmt(c.T) + ' К<br>';
-            h += 'Абсолютное давление: P = ' + c.pKPa + ' кПа<br>';
-            h += 'Газовая постоянная: R = ' + R + ' кПа·л/(моль·К)<br>';
+            h += `Газ: ${escapeHtml(c.gas.name)} (${escapeHtml(c.gas.formula)})<br>`;
+            h += `Молярная масса: M = ${c.M} г/моль<br>`;
+            h += `Температура: t = ${c.tC} °C &rarr; T = ${fmt(c.T)} К<br>`;
+            h += `Абсолютное давление: P = ${c.pKPa} кПа<br>`;
+            h += `Газовая постоянная: R = ${R} кПа·л/(моль·К)<br>`;
             h += 'Модель: Уравнение состояния идеального газа (Менделеева—Клапейрона)<br>';
             if (c.isCH4 && c.lelPctVol !== null) {
-                h += 'НКПР метана (CH₄): ' + c.lelPctVol.toFixed(1).replace('.', ',') + ' %VOL<br>';
+                h += `НКПР метана (CH₄): ${c.lelPctVol.toFixed(1).replace('.', ',')} %VOL<br>`;
             }
             h += '</div>';
 
             h += '<div class="section">';
             h += '<div class="section-title">2. Исходная величина</div>';
-            h += 'C = ' + fmt(c.val) + ' ' + escapeHtml(c.unitLabel) + '<br>';
+            h += `C = ${fmt(c.val)} ${escapeHtml(c.unitLabel)}<br>`;
             h += '</div>';
 
             h += '<div class="section">';
             h += '<div class="section-title">3. Приведение к ppm и пересчёт</div>';
 
             if (isMassUnit) {
-                var valMg, factorDesc;
+                let valMg, factorDesc;
                 if (c.unit === 'gm3') {
                     valMg = c.val * 1000;
-                    factorDesc = 'Перевод: ' + fmt(c.val) + ' г/м³ = ' + fmt(valMg) + ' мг/м³<br><br>';
+                    factorDesc = `Перевод: ${fmt(c.val)} г/м³ = ${fmt(valMg)} мг/м³<br><br>`;
                 } else if (c.unit === 'ugm3') {
                     valMg = c.val / 1000;
-                    factorDesc = 'Перевод: ' + fmt(c.val) + ' мкг/м³ = ' + fmt(valMg) + ' мг/м³<br><br>';
+                    factorDesc = `Перевод: ${fmt(c.val)} мкг/м³ = ${fmt(valMg)} мг/м³<br><br>`;
                 } else {
                     valMg = c.val;
                     factorDesc = '';
                 }
 
-                var num = valMg * R * c.T;
-                var den = c.M * c.pKPa;
+                const num = valMg * R * c.T;
+                const den = c.M * c.pKPa;
 
                 if (factorDesc) {
                     h += factorDesc;
@@ -835,56 +991,64 @@
                 h += 'Формула:<br>';
                 h += '<div class="formula-line">C(ppm) = C(мг/м³) &times; R &times; T / (M &times; P)</div><br>';
                 h += 'Подстановка:<br>';
-                h += '<div class="formula-line">= ' + fmt(valMg) + ' &times; ' + R + ' &times; ' + fmt(c.T) + ' / (' + c.M + ' &times; ' + c.pKPa + ')</div><br>';
-                h += 'Числитель: ' + fmt(valMg) + ' &times; ' + R + ' &times; ' + fmt(c.T) + ' = ' + fmt(num) + '<br>';
-                h += 'Знаменатель: ' + c.M + ' &times; ' + c.pKPa + ' = ' + fmt(den) + '<br>';
-                h += '<div class="formula-line">C(ppm) = ' + fmt(num) + ' / ' + fmt(den) + ' = ' + fmt(c.ppm) + '</div><br><br>';
+                h += `<div class="formula-line">= ${fmt(valMg)} &times; ${R} &times; ${fmt(c.T)} / (${c.M} &times; ${c.pKPa})</div><br>`;
+                h += `Числитель: ${fmt(valMg)} &times; ${R} &times; ${fmt(c.T)} = ${fmt(num)}<br>`;
+                h += `Знаменатель: ${c.M} &times; ${c.pKPa} = ${fmt(den)}<br>`;
+                h += `<div class="formula-line">C(ppm) = ${fmt(num)} / ${fmt(den)} = ${fmt(c.ppm)}</div><br><br>`;
 
-                var numRev = c.ppm * c.M * c.pKPa;
-                var denRev = R * c.T;
+                const numRev = c.ppm * c.M * c.pKPa;
+                const denRev = R * c.T;
                 h += 'Обратная проверка (ppm &rarr; мг/м³):<br>';
-                h += '<div class="formula-line">C(мг/м³) = ' + fmt(c.ppm) + ' &times; ' + c.M + ' &times; ' + c.pKPa + ' / (' + R + ' &times; ' + fmt(c.T) + ')</div><br>';
-                h += '= ' + fmt(numRev) + ' / ' + fmt(denRev) + ' = ' + fmt(c.mgm3) + ' мг/м³<br>';
+                h += `<div class="formula-line">C(мг/м³) = ${fmt(c.ppm)} &times; ${c.M} &times; ${c.pKPa} / (${R} &times; ${fmt(c.T)})</div><br>`;
+                h += `= ${fmt(numRev)} / ${fmt(denRev)} = ${fmt(c.mgm3)} мг/м³<br>`;
 
             } else {
-                var convLine = '';
+                let convLine = '';
                 if (c.unit === 'ppm') {
-                    convLine = 'C(ppm) = ' + fmt(c.val) + ' (уже в ppm)';
+                    convLine = `C(ppm) = ${fmt(c.val)} (уже в ppm)`;
                 } else if (c.unit === 'ppb') {
-                    convLine = 'C(ppm) = ' + fmt(c.val) + ' / 1000 = ' + fmt(c.ppm);
+                    convLine = `C(ppm) = ${fmt(c.val)} / 1000 = ${fmt(c.ppm)}`;
                 } else if (c.unit === 'percent' || c.unit === 'percent_vol') {
-                    convLine = 'C(ppm) = ' + fmt(c.val) + ' &times; 10 000 = ' + fmt(c.ppm);
+                    convLine = `C(ppm) = ${fmt(c.val)} &times; 10 000 = ${fmt(c.ppm)}`;
                 } else if (c.unit === 'percent_lel') {
-                    var ppmPerLel = c.isCH4 ? calcPpmPerPctLel(c.lelPctVol) : 500;
-                    convLine = 'C(ppm) = ' + fmt(c.val) + ' &times; ' + Math.round(ppmPerLel) + ' = ' + fmt(c.ppm);
+                    const ppmPerLel = c.ppmPerLel || calcPpmPerPctLel(c.lelPctVol);
+                    convLine = `C(ppm) = ${fmt(c.val)} &times; ${ppmPerLel} = ${fmt(c.ppm)}`;
                 }
                 h += 'Приведение к ppm:<br>';
-                h += '<div class="formula-line">' + convLine + '</div><br><br>';
+                h += `<div class="formula-line">${convLine}</div><br><br>`;
 
-                var numMg = c.ppm * c.M * c.pKPa;
-                var denMg = R * c.T;
+                const numMg = c.ppm * c.M * c.pKPa;
+                const denMg = R * c.T;
                 h += 'Пересчёт в мг/м³:<br>';
                 h += '<div class="formula-line">C(мг/м³) = C(ppm) &times; M &times; P / (R &times; T)</div><br>';
                 h += 'Подстановка:<br>';
-                h += '<div class="formula-line">= ' + fmt(c.ppm) + ' &times; ' + c.M + ' &times; ' + c.pKPa + ' / (' + R + ' &times; ' + fmt(c.T) + ')</div><br>';
-                h += 'Числитель: ' + fmt(c.ppm) + ' &times; ' + c.M + ' &times; ' + c.pKPa + ' = ' + fmt(numMg) + '<br>';
-                h += 'Знаменатель: ' + R + ' &times; ' + fmt(c.T) + ' = ' + fmt(denMg) + '<br>';
-                h += '<div class="formula-line">C(мг/м³) = ' + fmt(numMg) + ' / ' + fmt(denMg) + ' = ' + fmt(c.mgm3) + '</div>';
+                h += `<div class="formula-line">= ${fmt(c.ppm)} &times; ${c.M} &times; ${c.pKPa} / (${R} &times; ${fmt(c.T)})</div><br>`;
+                h += `Числитель: ${fmt(c.ppm)} &times; ${c.M} &times; ${c.pKPa} = ${fmt(numMg)}<br>`;
+                h += `Знаменатель: ${R} &times; ${fmt(c.T)} = ${fmt(denMg)}<br>`;
+                h += `<div class="formula-line">C(мг/м³) = ${fmt(numMg)} / ${fmt(denMg)} = ${fmt(c.mgm3)}</div>`;
             }
             h += '</div>';
 
-            h += '<div class="section">';
-            h += '<div class="section-title">4. Окончательные результаты</div>';
-            h += 'C = ' + fmt(c.ppm) + ' ppm<br>';
-            h += 'C = ' + fmt(c.ppb) + ' ppb<br>';
-            h += 'C = ' + fmt(c.percent) + ' %<br>';
-            if (c.isCH4) {
-                h += 'C = ' + fmt(c.percentVol) + ' %VOL<br>';
-                h += 'C = ' + fmt(c.percentLel) + ' %LEL<br>';
+            // Добавляем коэффициент пересчёта %LEL
+            if (c.isCH4 && c.ppmPerLel) {
+                h += '<div class="section">';
+                h += '<div class="section-title">4. Используемый коэффициент пересчёта %LEL</div>';
+                h += `<div class="formula-line">1 %LEL = ${c.ppmPerLel} ppm</div>`;
+                h += '</div>';
             }
-            h += 'C = ' + fmt(c.mgm3) + ' мг/м³<br>';
-            h += 'C = ' + fmt(c.gm3) + ' г/м³<br>';
-            h += 'C = ' + fmt(c.ugm3) + ' мкг/м³<br>';
+
+            h += '<div class="section">';
+            h += '<div class="section-title">' + (c.isCH4 ? '5' : '4') + '. Окончательные результаты</div>';
+            h += `C = ${fmt(c.ppm)} ppm<br>`;
+            h += `C = ${fmt(c.ppb)} ppb<br>`;
+            h += `C = ${fmt(c.percent)} %<br>`;
+            if (c.isCH4) {
+                h += `C = ${fmt(c.percentVol)} %VOL<br>`;
+                h += `C = ${fmt(c.percentLel)} %LEL<br>`;
+            }
+            h += `C = ${fmt(c.mgm3)} мг/м³<br>`;
+            h += `C = ${fmt(c.gm3)} г/м³<br>`;
+            h += `C = ${fmt(c.ugm3)} мкг/м³<br>`;
             h += '</div>';
 
             elCalcDet.innerHTML = h;
@@ -894,6 +1058,10 @@
          *  ИНИЦИАЛИЗАЦИЯ
          * ============================================================= */
 
+        // Инициализация списка газов
+        initGasSelect();
+
+        // Обработчики событий
         elGas.addEventListener('change', function () {
             updateInterface();
             convert();
@@ -913,11 +1081,7 @@
 
         // Первичная настройка интерфейса
         updateInterface();
-        
-        // Явно устанавливаем единицу по умолчанию после формирования списка
         elUnit.value = 'ppm';
-        
-        // Первичный расчёт (не выполнится, т.к. поле значения пустое)
         convert();
     </script>
 </body>
